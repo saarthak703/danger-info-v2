@@ -158,7 +158,9 @@ def try_region_once(request_hex: str, enc_key: str, enc_iv: str, region: str) ->
 # ====================
 # Routes
 # ====================
-
+@app.route("/")
+def home():
+    return "✅ Flask on Vercel working!"
 @app.route('/ping')
 def ping():
     return {"status": "ok", "message": "Server is awake"}, 200
