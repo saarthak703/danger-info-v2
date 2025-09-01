@@ -157,39 +157,27 @@ def try_region_once(request_hex: str, enc_key: str, enc_iv: str, region: str) ->
         raw = query_game_api(encrypted, region)
 
         msg = AccountPersonalShowInfo()
-        try:
-            msg.ParseFromString(raw)
-        except Exception as e:
-            raise RuntimeError(f"Failed to parse protobuf from region {region}: {str(e)}")
+        msg.ParseFromString(raw)
 
-        # Convert protobuf to dictionary
-        result_dict = MessageToDict(msg, including_default_value_fields=True, use_integers_for_enums=True)
+        # Convert protobuf to dictionary (without the problematic parameter)
+        result_dict = MessageToDict(msg)
         
-        # Handle PrimeLevel field safely
+        # Handle PrimeLevel field safely - check if it exists in the parsed message
         try:
-            # Method 1: Direct protobuf access
             if hasattr(msg, 'basic_info') and msg.basic_info and msg.basic_info.HasField('prime_level'):
                 prime_level_value = msg.basic_info.prime_level.prime_level
+                # Ensure basicInfo exists in result_dict
                 if 'basicInfo' not in result_dict:
                     result_dict['basicInfo'] = {}
                 result_dict['basicInfo']['primeLevel'] = prime_level_value
-            
-            # Method 2: Dictionary access fallback
-            elif 'basicInfo' in result_dict and 'primeLevel' in result_dict['basicInfo']:
-                prime_level_data = result_dict['basicInfo']['primeLevel']
-                if isinstance(prime_level_data, dict) and 'primeLevel' in prime_level_data:
-                    result_dict['basicInfo']['primeLevel'] = prime_level_data['primeLevel']
-                    
         except Exception as prime_error:
-            # Log prime level error but don't crash the whole response
+            # If prime level processing fails, continue without it
             print(f"PrimeLevel processing error: {str(prime_error)}")
-            # Keep the original primeLevel data as is
         
         return result_dict
         
     except Exception as e:
         raise RuntimeError(f"Error processing region {region}: {str(e)}")
-
 
 @app.route('/ping')
 def ping():
