@@ -153,8 +153,24 @@ def try_region_once(request_hex: str, enc_key: str, enc_iv: str, region: str) ->
     except Exception as e:
         raise RuntimeError(f"Failed to parse protobuf from region {region}: {e}")
 
-    return MessageToDict(msg)
-
+    # Convert protobuf to dictionary
+    result_dict = MessageToDict(msg, including_default_value_fields=True)
+    
+    # Handle PrimeLevel field if it exists in basic_info
+    if msg.HasField('basic_info') and msg.basic_info.HasField('prime_level'):
+        prime_level_value = msg.basic_info.prime_level.prime_level
+        # Ensure basicInfo exists in result_dict
+        if 'basicInfo' not in result_dict:
+            result_dict['basicInfo'] = {}
+        result_dict['basicInfo']['primeLevel'] = prime_level_value
+    
+    # Alternative approach for handling nested PrimeLevel structure
+    elif 'basicInfo' in result_dict and 'primeLevel' in result_dict['basicInfo']:
+        prime_level_data = result_dict['basicInfo']['primeLevel']
+        if isinstance(prime_level_data, dict) and 'primeLevel' in prime_level_data:
+            result_dict['basicInfo']['primeLevel'] = prime_level_data['primeLevel']
+    
+    return result_dict
 # ====================
 # Routes
 # ====================
