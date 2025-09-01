@@ -159,26 +159,23 @@ def try_region_once(request_hex: str, enc_key: str, enc_iv: str, region: str) ->
         msg = AccountPersonalShowInfo()
         msg.ParseFromString(raw)
 
-        # Convert protobuf to dictionary (without the problematic parameter)
+        # Basic conversion without any additional parameters
         result_dict = MessageToDict(msg)
         
-        # Handle PrimeLevel field safely - check if it exists in the parsed message
+        # Simple prime level handling without complex checks
         try:
-            if hasattr(msg, 'basic_info') and msg.basic_info and msg.basic_info.HasField('prime_level'):
+            if hasattr(msg, 'basic_info') and hasattr(msg.basic_info, 'prime_level'):
                 prime_level_value = msg.basic_info.prime_level.prime_level
-                # Ensure basicInfo exists in result_dict
                 if 'basicInfo' not in result_dict:
                     result_dict['basicInfo'] = {}
                 result_dict['basicInfo']['primeLevel'] = prime_level_value
-        except Exception as prime_error:
-            # If prime level processing fails, continue without it
-            print(f"PrimeLevel processing error: {str(prime_error)}")
+        except:
+            pass  # Silently ignore prime level errors
         
         return result_dict
         
     except Exception as e:
         raise RuntimeError(f"Error processing region {region}: {str(e)}")
-
 @app.route('/ping')
 def ping():
     return {"status": "ok", "message": "Server is awake"}, 200
