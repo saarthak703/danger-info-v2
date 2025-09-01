@@ -159,18 +159,21 @@ def try_region_once(request_hex: str, enc_key: str, enc_iv: str, region: str) ->
         msg = AccountPersonalShowInfo()
         msg.ParseFromString(raw)
 
-        # Basic conversion without any additional parameters
-        result_dict = MessageToDict(msg)
+        # Convert with defaults
+        result_dict = MessageToDict(msg, including_default_value_fields=True)
         
-        # Simple prime level handling without complex checks
+        # Prime level handling
         try:
-            if hasattr(msg, 'basic_info') and hasattr(msg.basic_info, 'prime_level'):
-                prime_level_value = msg.basic_info.prime_level.prime_level
+            if msg.basic_info.HasField("prime_level"):
+                prime_info = MessageToDict(
+                    msg.basic_info.prime_level,
+                    including_default_value_fields=True
+                )
                 if 'basicInfo' not in result_dict:
                     result_dict['basicInfo'] = {}
-                result_dict['basicInfo']['primeLevel'] = prime_level_value
-        except:
-            pass  # Silently ignore prime level errors
+                result_dict['basicInfo']['primeLevelInfo'] = prime_info
+        except Exception as e:
+            print("Prime parse error:", e)
         
         return result_dict
         
