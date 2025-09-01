@@ -152,32 +152,36 @@ def query_game_api(encrypted_hex: str, region: str) -> bytes:
 
 
 def try_region_once(request_hex: str, enc_key: str, enc_iv: str, region: str) -> dict:
+def try_region_once(request_hex: str, enc_key: str, enc_iv: str, region: str) -> dict:
     try:
+        # Encrypt and query
         encrypted = encrypt_data(request_hex, enc_key, enc_iv)
         raw = query_game_api(encrypted, region)
 
+        # Parse protobuf
         msg = AccountPersonalShowInfo()
         msg.ParseFromString(raw)
 
-        # Convert with defaults
+        # Convert to dict with defaults included
         result_dict = MessageToDict(msg, including_default_value_fields=True)
-        
-        # Prime level handling
+
+        # Handle Prime Level info safely
         try:
-            if msg.basic_info.HasField("prime_level"):
+            if hasattr(msg, "basic_info") and msg.basic_info.HasField("prime_level"):
                 prime_info = MessageToDict(
                     msg.basic_info.prime_level,
                     including_default_value_fields=True
                 )
-                if 'basicInfo' not in result_dict:
-                    result_dict['basicInfo'] = {}
-                result_dict['basicInfo']['primeLevelInfo'] = prime_info
-        except Exception as e:
-            print("Prime parse error:", e)
-        
+                if "basicInfo" not in result_dict:
+                    result_dict["basicInfo"] = {}
+                result_dict["basicInfo"]["primeLevelInfo"] = prime_info
+        except Exception as pe:
+            print(f"[DEBUG] Prime parse error in region {region}: {pe}")
+
         return result_dict
-        
+
     except Exception as e:
+        print(f"[DEBUG] Error inside try_region_once for {region}: {e}")
         raise RuntimeError(f"Error processing region {region}: {str(e)}")
 @app.route('/ping')
 def ping():
