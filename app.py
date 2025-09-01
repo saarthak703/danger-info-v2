@@ -1,4 +1,3 @@
-# api/index.py
 import os
 import binascii
 from datetime import datetime, timedelta
@@ -54,6 +53,14 @@ jwt_token_cache: Dict[str, dict] = {}
 # ========
 # Helpers
 # ========
+
+def safe_message_to_dict(msg):
+    """Wrapper to handle old/new protobuf versions safely."""
+    try:
+        return MessageToDict(msg, including_default_value_fields=True)
+    except TypeError:
+        return MessageToDict(msg)
+
 
 def check_api_key():
     key = request.args.get('key') or request.headers.get('x-api-key')
@@ -114,7 +121,6 @@ def get_jwt_token(region: str) -> Optional[str]:
     if token_data and token_data['expiry'] > datetime.utcnow():
         return token_data['token']
 
-    # fetch
     try:
         url = jwt_endpoints.get(region_key, jwt_endpoints["DEFAULT"])
         resp = safe_get(url)
@@ -153,44 +159,37 @@ def query_game_api(encrypted_hex: str, region: str) -> bytes:
 
 def try_region_once(request_hex: str, enc_key: str, enc_iv: str, region: str) -> dict:
     try:
-        # Encrypt and query game API
         encrypted = encrypt_data(request_hex, enc_key, enc_iv)
         raw = query_game_api(encrypted, region)
 
-        # Parse protobuf
         msg = AccountPersonalShowInfo()
         msg.ParseFromString(raw)
 
-        # Convert to dict (include defaults)
-        result_dict = MessageToDict(msg, including_default_value_fields=True)
+        result_dict = safe_message_to_dict(msg)
 
-        # Prime Level handling (safe)
+        # Prime level handling
         if hasattr(msg, "basic_info"):
             try:
                 if msg.basic_info.HasField("prime_level"):
-                    prime_info = MessageToDict(
-                        msg.basic_info.prime_level,
-                        including_default_value_fields=True
-                    )
+                    prime_info = safe_message_to_dict(msg.basic_info.prime_level)
                     if "basicInfo" not in result_dict:
                         result_dict["basicInfo"] = {}
                     result_dict["basicInfo"]["primeLevelInfo"] = prime_info
             except Exception as pe:
-                # Log but don’t crash function
                 print(f"[DEBUG] Prime parse error in region {region}: {pe}")
 
         return result_dict
 
     except Exception as e:
-        # Log detailed error for debugging
         print(f"[DEBUG] Error inside try_region_once for {region}: {e}")
-        # Return a JSON-safe dict instead of raising → avoids crash on Vercel
         return {
             "status": "error",
             "region": region,
             "message": f"Failed to process region {region}",
             "error": str(e)
-                    }
+        }
+
+
 @app.route('/ping')
 def ping():
     return {"status": "ok", "message": "Server is awake"}, 200
@@ -237,7 +236,3 @@ def get_player_info():
         "credits": OWNER,
         "contact": TELEGRAM_GROUP
     }), 404
-
-# Do not run a local server in Vercel environment; Vercel will import `app`.
-
-# Expose app for WSGI
